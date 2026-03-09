@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssignmentX Math Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(10, 25, 47, 0.98);
+            --glass-border: rgba(0, 210, 255, 0.4); 
+            --mathly-yellow: #f1c40f;
+            --mathly-blue: #00d2ff; 
+            --mathly-red: #ff4757;
+            --mathly-green: #2ecc71;
+            --text-main: #ccd6f6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #0a192f; 
+            min-height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            color: var(--text-main); 
+            overflow: hidden; 
+            position: relative;
+        }
+
+        #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+        .screen { 
+            display: none; 
+            width: 95%; 
+            max-width: 500px; 
+            max-height: 95vh;
+            background: var(--glass-bg); 
+            backdrop-filter: blur(25px); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 30px; 
+            padding: 30px; 
+            text-align: center; 
+            z-index: 2; 
+            position: relative; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
+            overflow-y: auto;
+        }
+        
+        .active { display: block; animation: zoomIn 0.3s ease-out; }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .internal-header { margin-bottom: 20px; border-bottom: 1px solid rgba(0, 210, 255, 0.1); padding-bottom: 15px; }
+        .header-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+        .game-logo { width: 90px; height: 90px; object-fit: contain; filter: drop-shadow(0 0 5px var(--mathly-blue)); }
+        .internal-header h1 { color: var(--mathly-yellow); font-size: 1.4rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        .internal-header .subtitle { font-size: 0.7rem; color: #8892b0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; display: block; }
+        
+        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 15px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 10px; transition: 0.2s; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-proceed { background: var(--mathly-blue); color: #0a192f; }
+        .btn-mode { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; }
+        .btn-back { background: rgba(255, 71, 87, 0.1); border: 1px solid var(--mathly-red); color: var(--mathly-red); }
+
+        .settings-bar { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; }
+        .btn-setting { background: none; border: 1px solid rgba(255,255,255,0.1); color: #8892b0; padding: 8px 12px; border-radius: 8px; font-size: 0.65rem; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        
+        /* Visual Scaffold: 100-Grid */
+        .visual-scaffold { margin: 15px 0; display: flex; justify-content: center; align-items: center; min-height: 180px; }
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: repeat(10, 1fr); 
+            gap: 2px; 
+            width: 170px; 
+            height: 170px; 
+            background: rgba(255,255,255,0.05);
+            padding: 3px;
+            border: 2px solid var(--glass-border);
+        }
+        .grid-cell { background: #112240; width: 100%; height: 100%; border-radius: 1px; }
+        .grid-cell.active-cell { background: var(--mathly-yellow); box-shadow: 0 0 5px var(--mathly-yellow); }
+
+        .target-box { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 15px; }
+        .num-card { background: var(--glass-bg); border: 2px solid var(--mathly-yellow); padding: 15px 25px; border-radius: 15px; font-size: 2rem; font-weight: 900; color: var(--mathly-yellow); }
+
+        input { width: 100%; padding: 18px; border-radius: 15px; border: 2px solid var(--glass-border); background: rgba(0,0,0,0.4); color: white; text-align: center; font-size: 1.8rem; outline: none; margin-top: 10px; }
+        
+        .timer-container { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
+        #timer-bar { width: 100%; height: 100%; background: var(--mathly-red); transition: width 1s linear; }
+
+        .lvl-dot { width: 45px; height: 45px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; }
+        .lvl-dot.active-lvl { border-color: var(--mathly-yellow); color: var(--mathly-yellow); box-shadow: 0 0 15px var(--mathly-yellow); }
+        .lvl-dot.locked { opacity: 0.2; cursor: not-allowed; }
+
+        .modal { display: none; position: fixed; inset: 0; background: rgba(2, 12, 27, 0.98); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--glass-bg); padding: 30px; border-radius: 30px; border: 1px solid var(--mathly-blue); width: 90%; max-width: 420px; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="screen-welcome" class="screen active">
+        <div class="internal-header">
+            <div class="header-main">
+                <img src="logo.png" alt="Logo" class="game-logo">
+                <h1>Assignmentx Number: Demonstrate an understanding of percent (limited to whole numbers) concretely, pictorially, and symbolically)</h1>
+                <span class="subtitle">B4.1.5.1.1: Model or recognise percent (as a fraction related to hundredths) using concrete
+                models, pictorial representations and number line.</span>
+            </div>
+        </div>
+        <div style="font-size: 1rem; color: var(--mathly-blue); margin-bottom: 20px; font-weight: 700;">PROMPT: CONVERT TO PERCENT %</div>
+        <button class="btn-main btn-proceed" onclick="startGameDirectly()">START MISSION</button>
+        <button class="btn-main btn-mode" onclick="toggleModal(true)">📜 MISSION RULES</button>
+        <div class="settings-bar">
+            <button class="btn-setting btn-mute" onclick="toggleAudio()">🔊 SFX: ON</button>
+            <button class="btn-setting" style="color:var(--mathly-red)" onclick="clearProgress()">🗑 RESET</button>
+        </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="internal-header">
+            <div class="header-main">
+                <h1 id="lvl-title">Mission Lvl 1</h1>
+                <span class="subtitle" id="pattern-desc">Grid Recognition</span>
+            </div>
+        </div>
+        
+        <div class="timer-container"><div id="timer-bar"></div></div>
+        
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 800; margin-bottom: 5px;">
+            <div style="color: var(--mathly-blue);">SYNC: <span id="score">0</span></div>
+            <div style="color: var(--mathly-yellow);">MISSION: <span id="q-count">1</span>/10</div>
+            <div style="color: var(--mathly-red);">⏳ <span id="timer-text">30</span>s</div>
+        </div>
+
+        <div id="feedback-banner" style="height:25px; font-weight:900;"></div>
+
+        <div class="target-box">
+            <div class="num-card" id="display-val">?</div>
+            <div style="font-size: 1.5rem; font-weight: 900; color: #8892b0;">=</div>
+            <div class="num-card">?%</div>
+        </div>
+
+        <div class="visual-scaffold" id="scaffold-area">
+            <div class="grid-container" id="grid-100"></div>
+        </div>
+
+        <div id="hint-text" style="color:var(--mathly-yellow); font-weight:800; margin-bottom:10px; height:20px; font-size:0.7rem;"></div>
+        
+        <input type="number" id="answerInput" placeholder="ENTER PERCENT" disabled>
+
+        <button class="btn-main btn-proceed" id="submitBtn" style="display:none">SUBMIT DATA</button>
+        <button class="btn-main btn-proceed" id="startBtn">READY PILOT?</button>
+        
+        <div class="level-map" style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
+            <div class="lvl-dot" id="dot-1" onclick="selectLevel(1)">1</div>
+            <div class="lvl-dot locked" id="dot-2" onclick="selectLevel(2)">🔒</div>
+            <div class="lvl-dot locked" id="dot-3" onclick="selectLevel(3)">🔒</div>
+        </div>
+
+        <div class="settings-bar">
+            <button class="btn-setting btn-back" onclick="location.reload()">🚪 EXIT</button>
+            <button class="btn-setting" style="color:var(--mathly-yellow)" onclick="getHint()">💡 HINT</button>
+            <button class="btn-setting btn-mute" onclick="toggleAudio()">🔊 SFX</button>
+        </div>
+    </div>
+
+    <div id="screen-summary" class="screen">
+        <div class="internal-header"><h1>Mission Debrief</h1></div>
+        <div id="summary-status" style="font-size: 1.5rem; color: var(--mathly-green); font-weight: 800;">MISSION SUCCESS</div>
+        <div id="final-score-val" style="font-size: 4rem; color: var(--mathly-yellow); font-weight: 900; margin: 20px 0;">0</div>
+        <button class="btn-main btn-proceed" onclick="location.reload()">RETURN TO BASE</button>
+    </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color:var(--mathly-yellow); margin-bottom:15px;">PROTOCOLS</h2>
+            <ul style="list-style:none; font-size:0.85rem; line-height:1.6; color:var(--text-main);">
+                <li>📊 <b>LVL 1:</b> Count the grid squares (out of 100).</li>
+                <li>🔢 <b>LVL 2:</b> Convert fractions (e.g., 1/2 = 50%).</li>
+                <li>📉 <b>LVL 3:</b> Convert decimals (e.g., 0.75 = 75%).</li>
+            </ul>
+            <button class="btn-main btn-proceed" onclick="toggleModal(false)" style="margin-top:20px;">I UNDERSTAND</button>
+        </div>
+    </div>
+
+    <script>
+        // --- ANIMATED BACKGROUND ---
+        const bgCanvas = document.getElementById('bg-canvas'); const bgCtx = bgCanvas.getContext('2d');
+        let symbols = [];
+        const MATH_CHARS = ['%', '1/2', '0.5', '100', '75%', '¼', '¾', '÷'];
+        const PALETTE = ['#f1c40f', '#00d2ff', '#ff4757', '#2ecc71'];
+
+        function initBG() {
+            bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
+            symbols = Array.from({length: 25}, () => ({
+                x: Math.random() * bgCanvas.width, y: Math.random() * bgCanvas.height,
+                char: MATH_CHARS[Math.floor(Math.random() * MATH_CHARS.length)],
+                color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+                size: Math.floor(Math.random() * 30) + 40, 
+                speed: 0.3 + Math.random() * 0.5,
+                rotation: Math.random() * 6
+            }));
+        }
+
+        function drawBG() {
+            bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+            symbols.forEach(s => {
+                bgCtx.save(); bgCtx.translate(s.x, s.y); bgCtx.rotate(s.rotation);
+                bgCtx.fillStyle = s.color; bgCtx.globalAlpha = 0.1;
+                bgCtx.font = `900 ${s.size}px Inter`; bgCtx.fillText(s.char, 0, 0);
+                bgCtx.restore();
+                s.y -= s.speed; if(s.y < -50) s.y = bgCanvas.height + 50;
+            });
+            requestAnimationFrame(drawBG);
+        }
+        initBG(); drawBG();
+
+        // --- AUDIO ---
+        const audioFiles = {
+            bg: new Audio("BGMSound.mp3"),
+            correct: new Audio("correctanswer.mp3"),
+            wrong: new Audio("wronganswer.mp3")
+        };
+        audioFiles.bg.loop = true;
+        let isMuted = false;
+
+        function toggleAudio() {
+            isMuted = !isMuted;
+            document.querySelectorAll('.btn-mute').forEach(b => b.innerText = isMuted ? "🔇 SFX: OFF" : "🔊 SFX: ON");
+            if (isMuted) audioFiles.bg.pause(); else audioFiles.bg.play().catch(()=>{});
+        }
+
+        // --- GAME ENGINE ---
+        let gameData = JSON.parse(localStorage.getItem('pilot_b4_save')) || { unlocked: [1] };
+        let game = { active: false, score: 0, currentLvl: 1, questionsLeft: 10, target: 0, timer: null };
+
+        function startGameDirectly() {
+            Tone.start();
+            if (!isMuted) audioFiles.bg.play().catch(() => {});
+            showScreen('screen-game');
+        }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'screen-game') updateMap();
+        }
+
+        function updateMap() {
+            for(let i=1; i<=3; i++){
+                const dot = document.getElementById(`dot-${i}`);
+                const isUnlocked = gameData.unlocked.includes(i);
+                dot.className = isUnlocked ? 'lvl-dot' : 'lvl-dot locked';
+                dot.innerText = isUnlocked ? i : '🔒';
+                if(game.currentLvl === i) dot.classList.add('active-lvl');
+            }
+        }
+
+        function renderGrid(count) {
+            const container = document.getElementById('grid-100');
+            container.innerHTML = "";
+            for(let i=1; i<=100; i++) {
+                const cell = document.createElement('div');
+                cell.className = i <= count ? 'grid-cell active-cell' : 'grid-cell';
+                container.appendChild(cell);
+            }
+        }
+
+        function generateProblem() {
+            document.getElementById('feedback-banner').innerText = "";
+            let displayVal = "";
+            
+            if(game.currentLvl === 1) {
+                game.target = Math.floor(Math.random() * 95) + 1;
+                displayVal = "SCAN";
+            } else if (game.currentLvl === 2) {
+                const options = [[1,2,50],[1,4,25],[3,4,75],[1,5,20],[2,5,40],[1,10,10]];
+                const choice = options[Math.floor(Math.random()*options.length)];
+                displayVal = `${choice[0]}/${choice[1]}`;
+                game.target = choice[2];
+            } else {
+                game.target = Math.floor(Math.random() * 99) + 1;
+                displayVal = (game.target/100).toFixed(2);
+            }
+
+            document.getElementById('display-val').innerText = displayVal;
+            renderGrid(game.target);
+            
+            document.getElementById('q-count').innerText = 11 - game.questionsLeft;
+            const input = document.getElementById('answerInput');
+            input.value = ""; input.disabled = false; input.focus();
+            resetTimer();
+        }
+
+        function handleFeedback(isCorr) {
+            clearInterval(game.timer);
+            const banner = document.getElementById('feedback-banner');
+            document.getElementById('answerInput').disabled = true;
+            if(isCorr) {
+                game.score += 10;
+                banner.innerText = "✓ SYNCED!"; banner.style.color = "var(--mathly-green)";
+                if(!isMuted) audioFiles.correct.play();
+            } else {
+                banner.innerText = `✗ ERROR! WAS ${game.target}%`; banner.style.color = "var(--mathly-red)";
+                if(!isMuted) audioFiles.wrong.play();
+            }
+            document.getElementById('score').innerText = game.score;
+            game.questionsLeft--;
+            setTimeout(() => {
+                if(game.questionsLeft > 0) generateProblem();
+                else endMission();
+            }, 1500);
+        }
+
+        function resetTimer() {
+            clearInterval(game.timer); let t = 30;
+            game.timer = setInterval(() => {
+                t--; document.getElementById('timer-text').innerText = t;
+                document.getElementById('timer-bar').style.width = (t/30)*100 + "%";
+                if(t <= 0) handleFeedback(false);
+            }, 1000);
+        }
+
+        function endMission() {
+            if(game.score >= 60 && game.currentLvl < 3) {
+                if(!gameData.unlocked.includes(game.currentLvl+1)) gameData.unlocked.push(game.currentLvl+1);
+                localStorage.setItem('pilot_b4_save', JSON.stringify(gameData));
+            }
+            document.getElementById('final-score-val').innerText = game.score;
+            showScreen('screen-summary');
+        }
+
+        document.getElementById('startBtn').onclick = () => {
+            game.active = true; game.score = 0; game.questionsLeft = 10;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('submitBtn').style.display = 'block';
+            generateProblem();
+        };
+
+        document.getElementById('submitBtn').onclick = () => {
+            const v = parseInt(document.getElementById('answerInput').value);
+            if(!isNaN(v)) handleFeedback(v === game.target);
+        };
+
+        function selectLevel(l) { if(gameData.unlocked.includes(l)) { game.currentLvl = l; updateMap(); } }
+        function toggleModal(s) { document.getElementById('rules-modal').style.display = s ? 'flex' : 'none'; }
+        function getHint() { document.getElementById('hint-text').innerText = "HINT: Each block is 1%. Count them carefully!"; }
+        function clearProgress() { localStorage.removeItem('pilot_b4_save'); location.reload(); }
+    </script>
+</body>
+</html>
